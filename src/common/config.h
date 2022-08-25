@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2006-2020 LOVE Development Team
+ * Copyright (c) 2006-2022 LOVE Development Team
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -40,6 +40,9 @@
 #if defined(__ANDROID__)
 #	define LOVE_ANDROID 1
 #endif	
+#if defined(__EMSCRIPTEN__)
+#  define LOVE_EMSCRIPTEN 1
+#endif
 #if defined(__EMSCRIPTEN__)
 #  define LOVE_EMSCRIPTEN 1
 #endif

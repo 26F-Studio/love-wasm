@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2006-2020 LOVE Development Team
+ * Copyright (c) 2006-2022 LOVE Development Team
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -186,7 +186,6 @@ double Timer::getTime()
 	rel.QuadPart = now.QuadPart - start.QuadPart;
 	return (double) rel.QuadPart / (double) freq.QuadPart;
 }
-
 #elif defined(LOVE_EMSCRIPTEN)
 double Timer::getTime()
 {

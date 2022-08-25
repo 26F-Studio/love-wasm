@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2006-2020 LOVE Development Team
+ * Copyright (c) 2006-2022 LOVE Development Team
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -61,7 +61,7 @@ Exception::Exception(const char *fmt, ...)
 		delete[] buffer;
 	}
 	message = std::string(buffer);
-
+  
 	#if LOVE_EMSCRIPTEN
 		// TODO: replace with a nice console.error call (ie figure out how to pass multi-line string to it properly)
 		std::cout << message << std::endl;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2006-2020 LOVE Development Team
+ * Copyright (c) 2006-2022 LOVE Development Team
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -50,14 +50,11 @@
 #include <OpenAL-Soft/al.h>
 #endif
 #else
-#if LOVE_EMSCRIPTEN	
-#include <AL/alc.h>	
-#include <AL/al.h>	
-#else	
-#include <AL/alc.h>	
-#include <AL/al.h>	
-#include <AL/alext.h>	
-#endif
+#include <AL/alc.h>
+#include <AL/al.h>
+#ifndef LOVE_EMSCRIPTEN
+#include <AL/alext.h>
+#endif //LOVE_EMSCRIPTEN
 #endif
 
 namespace love
@@ -100,6 +97,8 @@ public:
 	void pause(love::audio::Source *source);
 	void pause(const std::vector<love::audio::Source*> &sources);
 	std::vector<love::audio::Source*> pause();
+	void pauseContext();
+	void resumeContext();
 	void setVolume(float volume);
 	float getVolume() const;
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2006-2020 LOVE Development Team
+ * Copyright (c) 2006-2022 LOVE Development Team
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -93,11 +93,43 @@ static int w__eq(lua_State *L)
 	return 1;
 }
 
+typedef uint64 ObjectKey;
+
+static bool luax_isfulllightuserdatasupported(lua_State *L)
+{
+	// LuaJIT prior to commit e9af1abec542e6f9851ff2368e7f196b6382a44c doesn't
+	// support lightuserdata > 48 bits. This is not a problem with Android,
+	// Windows, macOS, and iOS as they'll use updated LuaJIT or won't use
+	// pointers > 48 bits, but this is not the case for Linux. So check for
+	// this capability first!
+	static bool checked = false;
+	static bool supported = false;
+
+	if (!checked)
+	{
+		lua_pushcclosure(L, [](lua_State *L) -> int
+		{
+			// Try to push pointer with all bits set.
+			lua_pushlightuserdata(L, (void *) (~((size_t) 0)));
+			return 1;
+		}, 0);
+
+		supported = lua_pcall(L, 0, 1, 0) == 0;
+		checked = true;
+
+		lua_pop(L, 1);
+	}
+
+	return supported;
+}
+
 // For use with the love object pointer -> Proxy pointer registry.
 // Using the pointer directly via lightuserdata would be ideal, but LuaJIT
-// cannot use lightuserdata with more than 47 bits whereas some newer arm64
-// architectures allow pointers which use more than that.
-static lua_Number luax_computeloveobjectkey(lua_State *L, love::Object *object)
+// (before a commit to 2.1 in 2020) cannot use lightuserdata with more than 47
+// bits whereas some newer arm64 architectures allow pointers which use more
+// than that.
+// FYI - Emscription modifications skipped
+static ObjectKey luax_computeloveobjectkey(lua_State *L, love::Object *object)
 {
 	// love objects should be allocated on the heap, and thus are subject
 	// to the alignment rules of operator new / malloc. Lua numbers (doubles)
@@ -130,12 +162,25 @@ static lua_Number luax_computeloveobjectkey(lua_State *L, love::Object *object)
 		luaL_error(L, "Cannot push love object to Lua: unexpected alignment "
 				   "(pointer is %p but alignment should be %d)", object, minalign);
 	}
-
-	key = (key & 0xC000000000000000ULL) ^ 0x4000000000000000ULL;
+  key = (key & 0xC000000000000000ULL) ^ 0x4000000000000000ULL;
 	key |= ((uint64_t)object >> 1) & 0x3FFFFFFFFFFFFFFFULL;
-	lua_Number fkey;
+	ObjectKey fkey;
 	memcpy(&fkey, &key, sizeof(fkey));
-	return fkey;
+        return fkey;
+	// return (ObjectKey) key;
+}
+
+static void luax_pushloveobjectkey(lua_State *L, ObjectKey key)
+{
+	// If full 64-bit lightuserdata is supported, always use that. Otherwise,
+	// if the key is smaller than 2^53 (which is integer precision for double
+	// datatype), then push number. Otherwise, throw error.
+	if (luax_isfulllightuserdatasupported(L))
+		lua_pushlightuserdata(L, (void *) key);
+	else if (key > 0x20000000000000ULL) // 2^53
+		luaL_error(L, "Cannot push love object to Lua: pointer value %p is too large", key);
+	else
+		lua_pushnumber(L, (lua_Number) key);
 }
 
 static int w__release(lua_State *L)
@@ -154,8 +199,8 @@ static int w__release(lua_State *L)
 		if (lua_istable(L, -1))
 		{
 			// loveobjects[object] = nil
-			lua_Number objectkey = luax_computeloveobjectkey(L, object);
-			lua_pushnumber(L, objectkey);
+			ObjectKey objectkey = luax_computeloveobjectkey(L, object);
+			luax_pushloveobjectkey(L, objectkey);
 			lua_pushnil(L);
 			lua_settable(L, -3);
 		}
@@ -618,10 +663,10 @@ void luax_pushtype(lua_State *L, love::Type &type, love::Object *object)
 		return luax_rawnewtype(L, type, object);
 	}
 
-	lua_Number objectkey = luax_computeloveobjectkey(L, object);
+	ObjectKey objectkey = luax_computeloveobjectkey(L, object);
 
 	// Get the value of loveobjects[object] on the stack.
-	lua_pushnumber(L, objectkey);
+	luax_pushloveobjectkey(L, objectkey);
 	lua_gettable(L, -2);
 
 	// If the Proxy userdata isn't in the instantiated types table yet, add it.
@@ -631,7 +676,7 @@ void luax_pushtype(lua_State *L, love::Type &type, love::Object *object)
 
 		luax_rawnewtype(L, type, object);
 
-		lua_pushnumber(L, objectkey);
+		luax_pushloveobjectkey(L, objectkey);
 		lua_pushvalue(L, -2);
 
 		// loveobjects[object] = Proxy.
@@ -958,7 +1003,9 @@ void luax_runwrapper(lua_State *L, const char *filedata, size_t datalen, const c
 	// functions struct pointer as arguments.
 	if (lua_istable(L, -1))
 	{
-		luaL_loadbuffer(L, filedata, datalen, filename);
+		std::string chunkname = std::string("=[love \"") + std::string(filename) + std::string("\"]");
+
+		luaL_loadbuffer(L, filedata, datalen, chunkname.c_str());
 		lua_pushvalue(L, -2);
 		if (ffifuncs != nullptr)
 			luax_pushpointerasstring(L, ffifuncs);
@@ -976,11 +1023,15 @@ Type *luax_type(lua_State *L, int idx)
 	return Type::byName(luaL_checkstring(L, idx));
 }
 
-int luax_resume(lua_State *L, int nargs)
+int luax_resume(lua_State *L, int nargs, int* nres)
 {
-#if LUA_VERSION_NUM >= 502
+#if LUA_VERSION_NUM >= 504
+	return lua_resume(L, nullptr, nargs, nres);
+#elif LUA_VERSION_NUM >= 502
+	LOVE_UNUSED(nres);
 	return lua_resume(L, nullptr, nargs);
 #else
+	LOVE_UNUSED(nres);
 	return lua_resume(L, nargs);
 #endif
 }
