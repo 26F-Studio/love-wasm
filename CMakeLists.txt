@@ -433,6 +433,15 @@ set(LOVE_SRC_MODULE_EVENT_SDL
 	src/modules/event/sdl/Event.h
 )
 
+if(EMSCRIPTEN)
+	if(LOVEJS_COMPAT)
+		set(LOVE_SRC_MODULE_EVENT_SDL
+			src/modules/event/sdl/Event_compat.cpp
+			src/modules/event/sdl/Event.h
+		)
+	endif()
+endif()
+
 set(LOVE_SRC_MODULE_EVENT
 	${LOVE_SRC_MODULE_EVENT_ROOT}
 	${LOVE_SRC_MODULE_EVENT_SDL}
@@ -1779,36 +1788,6 @@ if(EMSCRIPTEN)
 	else()
 		add_definitions("-s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=8 -s USE_SDL=2 -s FULL_ES2=1 -s INVOKE_RUN=0 --post-js ${CMAKE_CURRENT_SOURCE_DIR}/src/scripts/EmscriptenPersistence.js")
 	endif()
-
-	add_executable(${LOVE_EXE_NAME} src/love.cpp)	
-	set(EMSCRIPTEN_ARGS	
-		"-s CASE_INSENSITIVE_FS=1" # I think this is probably what most users expect (sorry linuxers)	
-		"--post-js ${CMAKE_CURRENT_SOURCE_DIR}/src/scripts/EmscriptenPersistence.js"	
-		"-s USE_SDL=2"
-		"-s MODULARIZE=1"	
-		"-s EXPORT_NAME=\"'Love'\""	
-		"-s WASM=1"
-		"-s FULL_ES2=1"	
-		"-s DISABLE_EXCEPTION_CATCHING=0" # Might be worth building a whitelist for EXCEPTION_CATCHING_WHITELIST
-		"-s ALLOW_MEMORY_GROWTH=1" # for dynamic resizing of memory, should not have a performance impact as using WASM
-		"-s FORCE_FILESYSTEM=1" # to fix Module.addDependency not existing
-		"-lidbfs.js" # to fix the ReferenceError: IDBFS is not defined
-        "-lwebsocket.js" # websocket API
-	)
-
-	if(NOT LOVEJS_COMPAT)
-		set(EMSCRIPTEN_ARGS
-			${EMSCRIPTEN_ARGS}
-			"-s USE_PTHREADS=1"
-			"-s PTHREAD_POOL_SIZE=8"	
-		)
-	endif()
-
-	target_link_libraries(${LOVE_EXE_NAME} ${LOVE_LIB_NAME} ${EMSCRIPTEN_ARGS})	
-else()
-	add_executable(${LOVE_EXE_NAME} WIN32 src/love.cpp ${LOVE_RC})
-	target_link_libraries(${LOVE_EXE_NAME} ${LOVE_LIB_NAME})
-endif()
 
 	add_executable(${LOVE_EXE_NAME} src/love.cpp)	
 	set(EMSCRIPTEN_ARGS	
