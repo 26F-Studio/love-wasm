@@ -26,6 +26,26 @@
 #include <SDL_clipboard.h>
 #include <SDL_cpuinfo.h>
 
+// Emscripten
+#include <emscripten/emscripten.h>
+
+EM_ASYNC_JS(void, EM_SetClipboardText, (const char* str), {
+	try {
+		await window.navigator.clipboard.writeText(UTF8ToString(str));
+	} catch (e) {
+		console.warn(e);
+	}
+});
+
+EM_ASYNC_JS(const char*, EM_GetClipboardText, (), {
+	try {
+		return stringToNewUTF8(await window.navigator.clipboard.readText());
+	} catch (e) {
+		console.warn(e);
+		return stringToNewUTF8("");
+	}
+});
+
 namespace love
 {
 namespace system
@@ -60,7 +80,7 @@ void System::setClipboardText(const std::string &text) const
 	if (!isWindowOpen())
 		throw love::Exception("A window must be created in order for setClipboardText to function properly.");
 
-	SDL_SetClipboardText(text.c_str());
+	EM_SetClipboardText(text.c_str());
 }
 
 std::string System::getClipboardText() const
@@ -70,11 +90,11 @@ std::string System::getClipboardText() const
 
 	std::string text("");
 
-	char *ctext = SDL_GetClipboardText();
+	char *ctext = EM_GetClipboardText();
 	if (ctext)
 	{
 		text = std::string(ctext);
-		SDL_free(ctext);
+		free(ctext);
 	}
 
 	return text;
