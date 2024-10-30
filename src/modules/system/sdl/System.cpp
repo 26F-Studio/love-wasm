@@ -37,7 +37,7 @@ EM_ASYNC_JS(void, EM_SetClipboardText, (const char* str), {
 	}
 });
 
-EM_ASYNC_JS(const char*, EM_GetClipboardText, (), {
+EM_ASYNC_JS(char*, EM_GetClipboardText, (), {
 	try {
 		return stringToNewUTF8(await window.navigator.clipboard.readText());
 	} catch (e) {
