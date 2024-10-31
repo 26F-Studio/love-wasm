@@ -18,6 +18,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  **/
 
+#include <future>
+
 // LOVE
 #include "System.h"
 #include "window/Window.h"
@@ -27,28 +29,7 @@
 #include <SDL_cpuinfo.h>
 
 // Emscripten
-#include <emscripten/emscripten.h>
-
-EM_JS(void, EM_SetClipboardText, (const char* str), {
-	Asyncify.handleAsync(async() => {
-		try {
-			await navigator.clipboard.writeText(UTF8ToString(str));
-		} catch (e) {
-			printf(e.message);
-		}
-	});
-});
-
-EM_JS(char*, EM_GetClipboardText, (), {
-	Asyncify.handleAsync(async() => {
-		try {
-			return stringToNewUTF8(await navigator.clipboard.readText());
-		} catch (e) {
-			printf(e.message);
-			return stringToNewUTF8("");
-		}
-	});
-});
+#include "./emscripten_browser_clipboard.h"
 
 namespace love
 {
@@ -84,7 +65,8 @@ void System::setClipboardText(const std::string &text) const
 	if (!isWindowOpen())
 		throw love::Exception("A window must be created in order for setClipboardText to function properly.");
 
-	EM_SetClipboardText(text.c_str());
+	printf("Setting clipboard text: %s\n", text.c_str());
+	emscripten_browser_clipboard::copy(text);
 }
 
 std::string System::getClipboardText() const
@@ -92,16 +74,17 @@ std::string System::getClipboardText() const
 	if (!isWindowOpen())
 		throw love::Exception("A window must be created in order for getClipboardText to function properly.");
 
-	std::string text("");
+	printf("Getting clipboard text\n");
 
-	char *ctext = EM_GetClipboardText();
-	if (ctext)
-	{
-		text = std::string(ctext);
-		free(ctext);
-	}
+	std::promise<std::string> text_promise;
 
-	return text;
+	emscripten_browser_clipboard::paste([&text_promise](std::string const &paste_data, void *callback_data [[maybe_unused]]){
+		text_promise.set_value(paste_data);
+	});
+
+	auto text_future = text_promise.get_future();
+
+	return text_future.get();
 }
 
 love::system::System::PowerState System::getPowerInfo(int &seconds, int &percent) const
