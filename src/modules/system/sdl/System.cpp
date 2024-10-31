@@ -32,19 +32,19 @@
 EM_JS(void, EM_SetClipboardText, (const char* str), {
 	Asyncify.handleAsync(async() => {
 		try {
-			await window.navigator.clipboard.writeText(UTF8ToString(str));
+			await navigator.clipboard.writeText(UTF8ToString(str));
 		} catch (e) {
-			console.warn(e);
+			printf(e.message);
 		}
 	});
 });
 
 EM_JS(char*, EM_GetClipboardText, (), {
-	Asyncify.handleAsync(async() => {	
+	Asyncify.handleAsync(async() => {
 		try {
-			return stringToNewUTF8(await window.navigator.clipboard.readText());
+			return stringToNewUTF8(await navigator.clipboard.readText());
 		} catch (e) {
-			console.warn(e);
+			printf(e.message);
 			return stringToNewUTF8("");
 		}
 	});
