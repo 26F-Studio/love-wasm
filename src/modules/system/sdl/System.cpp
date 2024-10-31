@@ -29,21 +29,25 @@
 // Emscripten
 #include <emscripten/emscripten.h>
 
-EM_ASYNC_JS(void, EM_SetClipboardText, (const char* str), {
-	try {
-		await window.navigator.clipboard.writeText(UTF8ToString(str));
-	} catch (e) {
-		console.warn(e);
-	}
+EM_JS(void, EM_SetClipboardText, (const char* str), {
+	Asyncify.handleAsync(async() => {
+		try {
+			await window.navigator.clipboard.writeText(UTF8ToString(str));
+		} catch (e) {
+			console.warn(e);
+		}
+	});
 });
 
-EM_ASYNC_JS(char*, EM_GetClipboardText, (), {
-	try {
-		return stringToNewUTF8(await window.navigator.clipboard.readText());
-	} catch (e) {
-		console.warn(e);
-		return stringToNewUTF8("");
-	}
+EM_JS(char*, EM_GetClipboardText, (), {
+	Asyncify.handleAsync(async() => {	
+		try {
+			return stringToNewUTF8(await window.navigator.clipboard.readText());
+		} catch (e) {
+			console.warn(e);
+			return stringToNewUTF8("");
+		}
+	});
 });
 
 namespace love
