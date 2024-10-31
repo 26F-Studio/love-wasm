@@ -79,7 +79,7 @@ std::string System::getClipboardText() const
 	std::promise<std::string> text_promise;
 
 	emscripten_browser_clipboard::paste([](std::string const &paste_data, void *callback_data) {
-		reinterpret_cast<std::promise<std::string>*>(text_promise)->set_value(paste_data);
+		reinterpret_cast<std::promise<std::string>*>(callback_data)->set_value(paste_data);
 	}, &text_promise);
 
 	auto text_future = text_promise.get_future();
